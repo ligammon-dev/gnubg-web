@@ -1,36 +1,123 @@
 // TODO: UI for moving checkers
 
-checkerDiameter = 30;
-gapBetweenCheckers = 5;
-barLength = 40;
-doublingCubeSize = 30;
-doublingCubeOffset = 5;
-dieSize = 30;
-dieDotRadius = 3;
-gapBetweenDice = 4;
-maxCheckersShown = 5;
-maxBarCheckersShown = 4;
 
-resignFlagPoleLength = 36;
-resignFlagSize = 20;
 
-verticalGap = 50;
-pointHeight = maxCheckersShown * checkerDiameter;
+import { Chessground } from './chessground.js';
 
-barLeftBoundary = checkerDiameter * 6 + gapBetweenCheckers * 7;
-barRightBoundary = barLeftBoundary + barLength;
-barCenter = (barLeftBoundary + barRightBoundary) / 2;
-boardWidth = barRightBoundary + checkerDiameter * 6 + gapBetweenCheckers * 7;
-boardHeight = maxCheckersShown * checkerDiameter * 2 + verticalGap;
 
-playerLeftDieStartPoint = (barRightBoundary + boardWidth - gapBetweenDice) / 2 - dieSize;
-playerRightDieStartPoint = (barRightBoundary + boardWidth + gapBetweenDice) / 2;
-opponentLeftDieStartPoint = (barLeftBoundary - gapBetweenDice) / 2 - dieSize;
-opponentRightDieStartPoint = (barLeftBoundary + gapBetweenDice) / 2;
-diceVerticalStartPoint = (boardHeight - dieSize) / 2;
+        const config = {
+    };
 
-playerColor = "red";
-opponentColor = "blue";
+
+
+var ground = Chessground(document.getElementById('chessground'), config);
+
+        ground.set({
+              highlight: {
+             lastMove: false, // add last-move class to squares
+            },
+            draggable: {
+                enabled:true,
+                showGhost: true,
+            },
+
+
+          turnColor: 'white',
+          movable: {
+            events: { after: fixMove(ground) } ,
+            //dests: legalMoves,
+            //showDests: true,
+            free: false
+          }
+        });
+
+function isPip(val) {
+    return (val[0] != 'g' && val[1] != '7');
+}
+
+function countPieces (val) {
+
+    var pstart = 0;
+    var pend = 0;
+    if (parseInt(val[1]) > 7) {
+        pstart = 7;
+        pend = 13;
+    }
+    for (var i = pstart; i < pend; i++) {
+        console.log(val[0] + i);
+    }
+
+}
+
+function logMapElements(value, key, map) {
+ // console.log(`m[${key}] = ${value}`);
+}
+
+export function fixMove(cg) {
+    cg.state.pieces.forEach(logMapElements);
+    console.log(cg.state.pieces);
+  return (orig, dest) => {
+    if (isPip(dest)) {
+
+        //return 
+        // if not more than 2 opposite color
+
+        // move to correct place
+
+
+    } else {
+   //console.log(cg);
+     setTimeout(() => {
+       cg.move(dest, orig);
+     }, 100);
+    // cg.move(dest, origin);
+}   
+
+    //chess.move({from: orig, to: dest});
+    //cg.set({
+    //   turnColor: toColor(chess),
+    //   movable: {
+    //     color: toColor(chess),
+    //     dests: toDests(chess)
+    //   }
+    // });
+  };
+}
+
+var lastDice1;
+var lastDice2;
+
+var checkerDiameter = 30;
+var gapBetweenCheckers = 5;
+var barLength = 40;
+var doublingCubeSize = 30;
+var doublingCubeOffset = 5;
+var dieSize = 30;
+var dieDotRadius = 3;
+var gapBetweenDice = 4;
+var maxCheckersShown = 5;
+var maxBarCheckersShown = 4;
+
+var resignFlagPoleLength = 36;
+var resignFlagSize = 20;
+
+var verticalGap = 50;
+var pointHeight = maxCheckersShown * checkerDiameter;
+
+var barLeftBoundary = checkerDiameter * 6 + gapBetweenCheckers * 7;
+var barRightBoundary = barLeftBoundary + barLength;
+var barCenter = (barLeftBoundary + barRightBoundary) / 2;
+var boardWidth = barRightBoundary + checkerDiameter * 6 + gapBetweenCheckers * 7;
+var boardHeight = maxCheckersShown * checkerDiameter * 2 + verticalGap;
+
+var playerLeftDieStartPoint = (barRightBoundary + boardWidth - gapBetweenDice) / 2 - dieSize;
+var playerRightDieStartPoint = (barRightBoundary + boardWidth + gapBetweenDice) / 2;
+var opponentLeftDieStartPoint = (barLeftBoundary - gapBetweenDice) / 2 - dieSize;
+var opponentRightDieStartPoint = (barLeftBoundary + gapBetweenDice) / 2;
+var diceVerticalStartPoint = (boardHeight - dieSize) / 2;
+
+var playerColor = "red";
+var opponentColor = "blue";
 
 function drawCheckers(ctx, numCheckers, pointStart, direction) {
     if (numCheckers == 0) {
@@ -98,8 +185,9 @@ function drawBarCheckers(ctx, numCheckers, direction) {
     ctx.fillStyle = "grey";
 }
 
-function drawBoard(backgroundOnly,
+ window.drawBoard = function(backgroundOnly,
                    board,
+                   boardString,
 		   matchLength,
 		   myScore,
 		   opponentScore,
@@ -116,6 +204,23 @@ function drawBoard(backgroundOnly,
                    resignationOffered,
 		   resignationValue) {
     var backgammonBoard = document.getElementById("backgammonBoard");
+    //var ground = Chessground(document.getElementById('chessground'), config);
+    //console.log(boardString);
+    if (dice1 > 0) {
+        lastDice1 = dice1;
+        lastDice2 = dice2;
+    }
+
+   // var legalMoves = new Map([]);
+
+   // legalMoves.set('a1', ['f1','f2','f3','f4', 'f5', 'f6']);
+    ground.set({fen: boardString});
+
+
+    //ground.set()
+
+
+
     var ctx = backgammonBoard.getContext("2d");
     ctx.strokeStyle = "black";
     ctx.fillStyle = "grey";
@@ -477,3 +582,5 @@ function drawDice(ctx, n1, n2, turn) {
     drawDie(ctx, leftDieStartPoint, color, n1);
     drawDie(ctx, rightDieStartPoint, color, n2);
 }
+
+//export default drawBoard;
