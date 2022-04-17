@@ -1,92 +1,5 @@
 // TODO: UI for moving checkers
 
-
-
-import { Chessground } from './chessground.js';
-
-
-        const config = {
-    };
-
-
-
-var ground = Chessground(document.getElementById('chessground'), config);
-
-        ground.set({
-              highlight: {
-             lastMove: false, // add last-move class to squares
-            },
-            draggable: {
-                enabled:true,
-                showGhost: true,
-            },
-
-
-          turnColor: 'white',
-          movable: {
-            events: { after: fixMove(ground) } ,
-            //dests: legalMoves,
-            //showDests: true,
-            free: false
-          }
-        });
-
-function isPip(val) {
-    return (val[0] != 'g' && val[1] != '7');
-}
-
-function countPieces (val) {
-
-    var pstart = 0;
-    var pend = 0;
-    if (parseInt(val[1]) > 7) {
-        pstart = 7;
-        pend = 13;
-    }
-    for (var i = pstart; i < pend; i++) {
-        console.log(val[0] + i);
-    }
-
-}
-
-function logMapElements(value, key, map) {
- // console.log(`m[${key}] = ${value}`);
-}
-
-export function fixMove(cg) {
-    cg.state.pieces.forEach(logMapElements);
-    console.log(cg.state.pieces);
-  return (orig, dest) => {
-    if (isPip(dest)) {
-
-        //return 
-        // if not more than 2 opposite color
-
-        // move to correct place
-
-
-    } else {
-   //console.log(cg);
-     setTimeout(() => {
-       cg.move(dest, orig);
-     }, 100);
-    // cg.move(dest, origin);
-}   
-
-    //chess.move({from: orig, to: dest});
-    //cg.set({
-    //   turnColor: toColor(chess),
-    //   movable: {
-    //     color: toColor(chess),
-    //     dests: toDests(chess)
-    //   }
-    // });
-  };
-}
-
-var lastDice1;
-var lastDice2;
-
 var checkerDiameter = 30;
 var gapBetweenCheckers = 5;
 var barLength = 40;
@@ -118,6 +31,170 @@ var diceVerticalStartPoint = (boardHeight - dieSize) / 2;
 
 var playerColor = "red";
 var opponentColor = "blue";
+
+import { Gammonground } from './gammonground.js';
+const config = {};
+
+var ground = Gammonground(document.getElementById('gammonground'), config);
+
+        ground.set({
+              highlight: {
+             lastMove: false, // add last-move class to squares
+            },
+            draggable: {
+                enabled:true,
+                showGhost: true,
+            },
+
+
+          turnColor: 'white',
+           events: {
+             select: tryRoll(ground) 
+           },
+          movable: {
+           events: { after: printLegalMoves() } ,
+            dests:  new Map([]),
+            showDests: true,
+            free: false
+          }
+        });
+
+var legalMoves = new Array([]);
+
+export function printLegalMoves(Api) {
+    return (orig, dest, metadata) => {
+        if (legalMoves) {
+            legalMoves.forEach(el => {
+                if (el.length > 0) {
+                    console.log(el);
+        
+                }
+            });
+        }
+    }
+}
+
+window.getRolls = function(rawHint) {
+      var moves = rawHint.split('.')[1].split('   ')[1].trim().split(' ');
+      legalMoves.push(cleanMoves(moves));
+     }
+
+function addGroundMove(g, p1, p2) {
+     console.log("NEW", ground.lastMove);
+    if (!g.state.movable.dests) {
+         g.set({
+          movable: {
+               dests: new Map([]),
+               showDests: true,
+           }
+       });
+    }
+    var m = g.state.movable.dests;
+    const squares1 = pip2squares(p1);
+    const squares2 = pip2squares(p2);
+    if (m.get(squares1[0])?.includes(squares2[0])) {
+        console.log("skipping add");
+        return;
+    }
+
+    squares1.forEach(el1 => {
+
+        var k = m.get(el1);
+        if (k) {
+            squares2.forEach(el2 => {
+                if (!k.includes(el2)) {
+                    k.push(el2); 
+                }   
+            });
+        } else {
+            m.set(el1, squares2);
+        }
+    });
+    g.set({ movable: { dests: m } });
+}
+
+function pip2squares(pip) {
+    var r = new Array();
+    if (parseInt(pip) <= 12) {
+        //console.log("PIP is ",pip);
+        let c = String.fromCharCode('a'.charCodeAt() + (parseInt(pip)-1) + (parseInt(pip)/7>>0));
+        for (var i = 1; i <= 6; i++) {
+            r.push(c + i);
+        }
+    } else {
+        let c2 = String.fromCharCode('a'.charCodeAt() + (24-parseInt(pip)) +  (((25-parseInt(pip))/7)>>0) );
+        //console.log("C2 is ", c2);
+        for (var j = 8; j <= 13; j++) {
+            r.push(c2 +  String.fromCharCode('0'.charCodeAt() + j));
+        }
+    }
+   return r;
+}
+
+
+export function tryRoll(Api) {
+    return (orig, dest) => {
+        if (orig == "c7" || orig == "d7" || orig == "j7" || orig == "k7") {
+            if (legalMoves.length != 0) {
+                legalMoves = [];
+                gnubgCommand("roll");
+
+                // TODO get legal moves
+                gnubgCommand("hint 200");
+                legalMoves.forEach(el => {
+                    if (el.length > 0) {
+                        console.log(el);
+                        el.forEach(el2 => {
+                             addGroundMove(ground, el2.substr(0, el2.indexOf("/")), el2.substr(el2.indexOf("/") + 1));
+                        })
+                    }
+                });
+            }
+
+        // undo
+        } else if (orig == "m7") {
+            gnubgCommand("show board");
+        }
+
+    }
+}
+
+function cleanMoves(a) {
+    let b = new Array();
+    a.forEach(el => {
+       // b.push(el.replace('*',''));
+        if (!el.includes('(') && !el.includes('bar')) {
+            b.push((el.replace('*','').split('/').slice(0,2).join('/')));
+        }
+    });
+    return b;
+}
+
+function isPip(val) {
+    return (val[0] != 'g' && val[1] != '7');
+}
+
+function countPieces (val) {
+
+    var pstart = 0;
+    var pend = 0;
+    if (parseInt(val[1]) > 7) {
+        pstart = 7;
+        pend = 13;
+    }
+    for (var i = pstart; i < pend; i++) {
+        console.log(val[0] + i);
+    }
+
+}
+
+function logMapElements(value, key, map) {
+ // console.log(`m[${key}] = ${value}`);
+}
+
+
+var lastDice1;
+var lastDice2;
 
 function drawCheckers(ctx, numCheckers, pointStart, direction) {
     if (numCheckers == 0) {
@@ -205,16 +282,31 @@ function drawBarCheckers(ctx, numCheckers, direction) {
 		   resignationValue) {
     var backgammonBoard = document.getElementById("backgammonBoard");
     //var ground = Chessground(document.getElementById('chessground'), config);
-    //console.log(boardString);
+    console.log(boardString);
     if (dice1 > 0) {
         lastDice1 = dice1;
         lastDice2 = dice2;
     }
 
+    console.log(lastDice1, lastDice2);
    // var legalMoves = new Map([]);
 
    // legalMoves.set('a1', ['f1','f2','f3','f4', 'f5', 'f6']);
-    ground.set({fen: boardString});
+   ground.set({fen: boardString});
+    if (dice1 <= 0) {
+        console.log("gets here", boardString[33]);
+         // var turn = parseInt(boardString[32]);
+        //ground.newPiece(pos2key([3,6]), {role: 'd1', color:  turn > 0 ? 'black' : 'white',});
+        ground.newPiece({role:'d'+lastDice1, color:'white'}, 'c7');
+        ground.newPiece({role:'d'+lastDice2, color:'white'}, 'd7');
+         ground.newPiece({role:'undo', color:'black'}, 'd7');
+        //boardString[33] = lastDice1;
+        //boardString[34] = lastDice2;
+   }
+   //ground.newPiece({role:'d'+lastDice2, color:'white'}, 'a0');
+   // ground.
+
+    //ground.set
 
 
     //ground.set()
@@ -582,5 +674,3 @@ function drawDice(ctx, n1, n2, turn) {
     drawDie(ctx, leftDieStartPoint, color, n1);
     drawDie(ctx, rightDieStartPoint, color, n2);
 }
-
-//export default drawBoard;
