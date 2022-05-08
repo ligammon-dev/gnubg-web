@@ -83,6 +83,18 @@ var Gammonground = (function () {
     function isGammonLegal(orig, dest, pieces) {
         return (isPip(dest) && !isSamePip(orig, dest) && !isOccupied(orig, dest, pieces));
     }
+    function square2pip(square) {
+        //const x = square[0].charCodeAt() - 'a'.charCodeAt();
+        //const y = square[1].charCodeAt() - '0'.charCodeAt();
+        const xy = key2pos(square);
+        const x = xy[0];
+        const y = xy[1];
+        //console.log("x, y: ", x, ",",y);
+        if (y >= 7) {
+            return (24 - x) + (x / 7 >> 0);
+        }
+        return (x + 1) - (x / 7 >> 0);
+    }
     function isPip(key) {
         const pos = key2pos(key);
         return (pos[0] != 6 && pos[1] != 6);
@@ -91,7 +103,8 @@ var Gammonground = (function () {
     function isSamePip(orig, dest) {
         const pos1 = key2pos(orig);
         const pos2 = key2pos(dest);
-        return ((pos1[0] == pos2[0]) &&
+        return (!(dest == 'a0') &&
+            (pos1[0] == pos2[0]) &&
             (pos1[1] - pos2[1] < 6) &&
             (((pos1[1] / 7) >> 0) - ((pos2[1] / 7) >> 0) == 0));
     }
@@ -142,7 +155,7 @@ var Gammonground = (function () {
         }
     }
     function baseMove(state, orig, dest) {
-        console.log("baseMove");
+        var _a, _b, _c;
         const origPiece = state.pieces.get(orig), destPiece = state.pieces.get(dest);
         if (orig === dest || !origPiece)
             return false;
@@ -158,6 +171,15 @@ var Gammonground = (function () {
         // don't register slid checkers
         if (!isSamePip(orig, dest)) {
             state.lastMove = [orig, dest];
+            if (orig.charAt(0) == 'g') {
+                (_a = state.lastGammonMove) === null || _a === void 0 ? void 0 : _a.push('25/' + square2pip(dest));
+            }
+            else if (dest == 'a0') {
+                (_b = state.lastGammonMove) === null || _b === void 0 ? void 0 : _b.push(square2pip(orig) + '/0');
+            }
+            else {
+                (_c = state.lastGammonMove) === null || _c === void 0 ? void 0 : _c.push(square2pip(orig) + '/' + square2pip(dest));
+            }
         }
         //state.lastMove = [orig, dest];
         callUserFunction(state.events.change);
@@ -173,26 +195,60 @@ var Gammonground = (function () {
         callUserFunction(state.events.dropNewPiece, piece, key);
         state.pieces.set(key, piece);
         state.lastMove = [key];
+        //state.lastGammonMove = [];
         callUserFunction(state.events.change);
         state.movable.dests = undefined;
-        state.turnColor = opposite(state.turnColor);
+        //state.turnColor = opposite(state.e);
         return true;
     }
     function baseUserMove(state, orig, dest) {
         const result = baseMove(state, orig, dest);
         if (result) {
             state.movable.dests = undefined;
-            state.turnColor = opposite(state.turnColor);
+            //state.turnColor = opposite(state.turnColor);
             state.animation.current = undefined;
         }
         return result;
     }
     function userMove(state, orig, dest) {
-        var _a, _b;
+        var _a, _b, _c;
         if (canMove(state, orig, dest)) {
-            var isSame = ((_a = state.pieces.get(orig)) === null || _a === void 0 ? void 0 : _a.color) == ((_b = state.pieces.get(dest)) === null || _b === void 0 ? void 0 : _b.color);
-            //console.log("userMove");
-            const result = baseUserMove(state, orig, dest);
+            var result;
+            // Gammonground
+            const clr = (_a = state.pieces.get(orig)) === null || _a === void 0 ? void 0 : _a.color;
+            //console.log("color", state.pieces.get(orig)?.color);
+            var isSame = ((_b = state.pieces.get(orig)) === null || _b === void 0 ? void 0 : _b.color) == ((_c = state.pieces.get(dest)) === null || _c === void 0 ? void 0 : _c.color);
+            const pos1 = key2pos(orig);
+            const pos2 = key2pos(dest);
+            const incr1 = pos1[1] > 6 ? -1 : 1;
+            const incr2 = pos2[1] > 6 ? -1 : 1;
+            var k = pos2[1];
+            var i = pos1[1] + incr1;
+            if (dest == 'a0') {
+                result = baseUserMove(state, orig, dest);
+            }
+            else {
+                if (isSame) {
+                    // slide checkers dest up
+                    for (k = pos2[1]; k != 6 && state.pieces.get(pos2key([pos2[0], k + incr2])); k += incr2)
+                        ;
+                    if (k + incr2 == 6) {
+                        // original move
+                        //console.log(state.dom);
+                        //setText(state.pieces.get(dest));
+                        //if (state.checkerCounts)
+                        //state.checkerCounts[square2pip(pos2key(pos2))] += 1;
+                        result = baseUserMove(state, orig, dest);
+                    }
+                    else {
+                        result = baseUserMove(state, orig, pos2key([pos2[0], k + incr2]));
+                    }
+                }
+                else {
+                    // The original move
+                    result = baseUserMove(state, orig, dest);
+                }
+            }
             if (result) {
                 const holdTime = state.hold.stop();
                 unselect(state);
@@ -200,58 +256,70 @@ var Gammonground = (function () {
                     ctrlKey: state.stats.ctrlKey,
                     holdTime,
                 };
-                if (result !== true)
+                if (result !== true) {
                     metadata.captured = result;
+                }
                 callUserFunction(state.movable.events.after, orig, dest, metadata);
-                //console.log(state.pieces.get(orig)?.color, state.pieces.get(dest)?.color );
-                //TODO grab orig top piece only
-                const pos = key2pos(orig);
-                var nextPos = pos;
-                const incr = (pos[1] / 7 >> 0) ? -1 : 1;
-                for (var i = pos[1] + incr; i != 6; i += incr) {
-                    nextPos[1] = i;
-                    if (state.pieces.get(pos2key(nextPos))) {
-                        baseUserMove(state, pos2key(nextPos), pos2key([nextPos[0], nextPos[1] - incr]));
-                        //baseUserMove(state, orig, pos2key([nextPos[0], nextPos[1]-incr]));
+                // TODO grab checkers from top orig 
+                for (var i = pos1[1] + incr1; i != 6 && state.pieces.get(pos2key([pos1[0], i])); i += incr1) {
+                    baseUserMove(state, pos2key([pos1[0], i]), pos2key([pos1[0], i - incr1]));
+                }
+                if (dest == 'a0' || dest == 'a>') {
+                    if (state.checkerCounts) {
+                        let inc = clr == 'white' ? -1 : 1;
+                        let p1 = square2pip(pos2key(pos1)) - 1;
+                        if (dest == 'a0') {
+                            state.checkerCounts[26] += inc;
+                        }
+                        else {
+                            state.checkerCounts[27] += inc;
+                        }
+                        state.checkerCounts[p1 + (p1 / 6 >> 0) - (p1 / 12 >> 0)] -= inc;
+                        if (Math.abs(state.checkerCounts[p1 + (p1 / 6 >> 0) - (p1 / 12 >> 0)]) > 5) {
+                            state.pieces.set(pos2key([pos1[0], i - incr1]), { role: 'checker', color: inc < 0 ? 'white' : 'black', });
+                        }
                     }
-                    else {
+                    return true;
+                }
+                // TODO slide successive checkers down to destination to fill gap
+                var p2 = state.pieces.get(dest);
+                for (var j = pos2[1]; j != ((pos2[1] / 7) >> 0) * 12; j -= incr2) {
+                    var p = state.pieces.get(pos2key([pos2[0], j - incr2]));
+                    if (p && p2 && samePiece(p, p2)) {
                         break;
                     }
                 }
-                // TODO slide dest up or down
-                const pos2 = key2pos(dest);
-                const incr2 = (pos2[1] / 7 >> 0) ? -1 : 1;
-                var nextPos2 = pos2;
-                var j = 0;
-                var p2 = state.pieces.get(dest);
-                // console.log(state.pieces.get(orig)?.color, state.pieces.get(dest)?.color );
-                if (isSame) {
-                    for (j = pos2[1]; j != 6; j += incr2) {
-                        //nextPos2[1] = j+incr;
-                        if (state.pieces.get(pos2key([pos2[0], j + incr2]))) ;
-                        else {
-                            break;
+                baseUserMove(state, dest, pos2key([pos2[0], j]));
+                state.lastMove = [pos2key([pos1[0], i - incr1]), isSame ? pos2key([pos2[0], k + incr2 == 6 ? k : k + incr2]) : pos2key([pos2[0], j])];
+                if (state.checkerCounts) {
+                    let p1 = square2pip(pos2key(pos1)) - 1;
+                    let p2 = square2pip(pos2key(pos2)) - 1;
+                    let inc = clr == 'white' ? -1 : 1;
+                    state.checkerCounts[p2 + (p2 / 6 >> 0) - (p2 / 12 >> 0)] += inc;
+                    // if captured
+                    if (state.checkerCounts[p2 + (p2 / 6 >> 0) - (p2 / 12 >> 0)] == 0) {
+                        state.pieces.set(pos2key([6, inc > 0 ? 5 : 7]), { role: 'checker', color: inc > 0 ? 'white' : 'black', });
+                        state.checkerCounts[inc > 0 ? 6 : 19] -= inc;
+                        state.checkerCounts[p2 + (p2 / 6 >> 0) - (p2 / 12 >> 0)] = inc;
+                    }
+                    if (pos1[0] == 6) { // if origin is on bar
+                        state.checkerCounts[inc > 0 ? 19 : 6] -= inc;
+                        if (Math.abs(state.checkerCounts[inc > 0 ? 19 : 6]) > 0) {
+                            state.pieces.set(pos2key([6, inc < 0 ? 5 : 7]), { role: 'checker', color: inc < 0 ? 'white' : 'black', });
                         }
                     }
-                    //console.log("J", pos2[0], j+incr2);
-                    baseUserMove(state, dest, pos2key([pos2[0], j + incr2]));
-                }
-                else {
-                    for (j = pos2[1]; j != ((pos2[1] / 7) >> 0) * 12; j -= incr2) {
-                        nextPos2[1] = j;
-                        var p = state.pieces.get(pos2key([nextPos2[0], nextPos2[1] - incr2]));
-                        console.log(j);
-                        if (p2) {
-                            if (!p || !samePiece(p, p2)) ;
-                            else {
-                                break;
-                            }
+                    else {
+                        state.checkerCounts[p1 + (p1 / 6 >> 0) - (p1 / 12 >> 0)] -= inc;
+                        if (Math.abs(state.checkerCounts[p1 + (p1 / 6 >> 0) - (p1 / 12 >> 0)]) > 5) {
+                            state.pieces.set(pos2key([pos1[0], i - incr1]), { role: 'checker', color: inc < 0 ? 'white' : 'black', });
                         }
                     }
-                    baseUserMove(state, dest, pos2key([nextPos2[0], j]));
                 }
                 return true;
             }
+        }
+        else {
+            console.log("not legal");
         }
         unselect(state);
         return false;
@@ -267,6 +335,7 @@ var Gammonground = (function () {
         unselect(state);
     }
     function selectSquare(state, key, force) {
+        console.log("SELECT SQUARE");
         callUserFunction(state.events.select, key);
         if (state.selected) {
             if (state.selected === key && !state.draggable.enabled) {
@@ -282,6 +351,10 @@ var Gammonground = (function () {
             }
         }
         if (isMovable(state, key)) {
+            console.log("SELECT SQUARE 2");
+            console.log("SELECT SQUARE");
+            setTimeout(function () { console.log(state.draggable.current); }, 2000);
+            console.log(state.draggable.current);
             setSelected(state, key);
             state.hold.start();
         }
@@ -301,7 +374,8 @@ var Gammonground = (function () {
     }
     function canMove(state, orig, dest) {
         var _a, _b;
-        return (orig !== dest && isMovable(state, orig) && (state.movable.free || !!((_b = (_a = state.movable.dests) === null || _a === void 0 ? void 0 : _a.get(orig)) === null || _b === void 0 ? void 0 : _b.includes(dest))) && isGammonLegal(orig, dest, state.pieces));
+        //console.log( isGammonLegal(orig, dest, state.pieces),  !!state.movable.dests?.get(orig)?.includes(dest));
+        return (orig !== dest && isMovable(state, orig) && (state.movable.free || !!((_b = (_a = state.movable.dests) === null || _a === void 0 ? void 0 : _a.get(orig)) === null || _b === void 0 ? void 0 : _b.includes(dest)) || dest == 'a0') && (isGammonLegal(orig, dest, state.pieces) || dest == 'a0'));
     }
     function canDrop(state, orig, dest) {
         const piece = state.pieces.get(orig);
@@ -355,6 +429,32 @@ var Gammonground = (function () {
         '5': 'd5',
         '6': 'd6',
     };
+    function readCounts(fen) {
+        if (fen === 'start')
+            fen = initial;
+        //console.log("foo");
+        var my_string = fen.split(':');
+        const counts = new Array();
+        // for (let i = 0; i < 12; i++) {
+        //   if (i==6) r++;
+        //   let count = parseInt(my_string[i+7]);
+        //   let count2 = parseInt(my_string[23-i+7]);
+        //   r++;
+        // }
+        for (var i = 0; i < 24; i++) {
+            //counts.push(1);
+            if (i == 6) {
+                counts.push(parseInt(my_string[6]));
+            }
+            else if (i == 18) {
+                counts.push(parseInt(my_string[31]));
+            }
+            counts.push(parseInt(my_string[i + 7]));
+        }
+        counts.push(parseInt(my_string[45]));
+        counts.push(0 - parseInt(my_string[46]));
+        return counts;
+    }
     function read(fen) {
         if (fen === 'start')
             fen = initial;
@@ -367,12 +467,12 @@ var Gammonground = (function () {
             let count = parseInt(my_string[i + 7]);
             let count2 = parseInt(my_string[23 - i + 7]);
             if (count != 0) {
-                for (var c = 0; c < Math.abs(count); c++) {
+                for (var c = 0; c < Math.min(Math.abs(count), 6); c++) {
                     pieces.set(pos2key([r, c]), { role: 'checker', color: count > 0 ? 'black' : 'white', });
                 }
             }
             if (count2 != 0) {
-                for (var c = 0; c < Math.abs(count2); c++) {
+                for (var c = 0; c < Math.min(Math.abs(count2), 6); c++) {
                     pieces.set(pos2key([r, 12 - c]), { role: 'checker', color: count2 > 0 ? 'black' : 'white', });
                 }
             }
@@ -382,10 +482,25 @@ var Gammonground = (function () {
         if (parseInt(my_string[33]) > 0) {
             var x = turn > 0 ? 9 : 2;
             pieces.set(pos2key([x, 6]), { role: dice[my_string[33]], color: turn > 0 ? 'black' : 'white', });
+            //pieces.move(pos2key([x,6]), pos2key([x,8]));
             pieces.set(pos2key([x + 1, 6]), { role: dice[my_string[34]], color: turn > 0 ? 'black' : 'white', });
             if (turn > 0) {
                 pieces.set(pos2key([12, 6]), { role: 'undo', color: 'black' });
             }
+        }
+        // draw bar checkers
+        if (parseInt(my_string[31]) != 0) {
+            pieces.set(pos2key([6, 7]), { role: 'checker', color: 'black' });
+        }
+        if (parseInt(my_string[6]) != 0) {
+            pieces.set(pos2key([6, 5]), { role: 'checker', color: 'white' });
+        }
+        // draw off checkers
+        if (parseInt(my_string[46]) != 0) {
+            pieces.set('a>', { role: 'checker', color: 'white' });
+        }
+        if (parseInt(my_string[45]) != 0) {
+            pieces.set('a0', { role: 'checker', color: 'black' });
         }
         return pieces;
     }
@@ -411,15 +526,25 @@ var Gammonground = (function () {
             .replace(/1{2,}/g, s => s.length.toString());
     }
 
+    function applyAnimation(state, config) {
+        if (config.animation) {
+            deepMerge(state.animation, config.animation);
+            // no need for such short animations
+            if ((state.animation.duration || 0) < 70)
+                state.animation.enabled = false;
+        }
+    }
     function configure(state, config) {
         var _a;
         // don't merge destinations and autoShapes. Just override.
         if ((_a = config.movable) === null || _a === void 0 ? void 0 : _a.dests)
             state.movable.dests = undefined;
+        config.lastGammonMove = [];
         deepMerge(state, config);
         // if a fen was provided, replace the pieces
         if (config.fen) {
             state.pieces = read(config.fen);
+            state.checkerCounts = readCounts(config.fen);
         }
         // apply config values that could be undefined yet meaningful
         if ('lastMove' in config && !config.lastMove)
@@ -432,6 +557,7 @@ var Gammonground = (function () {
         // fix move/premove dests
         if (state.selected)
             setSelected(state, state.selected);
+        applyAnimation(state, config);
     }
     function deepMerge(base, extend) {
         for (const key in extend) {
@@ -674,6 +800,7 @@ var Gammonground = (function () {
         }
     }
     function end(s, e) {
+        var _a, _b, _c, _d, _e, _f;
         const cur = s.draggable.current;
         if (!cur) {
             // TODO delete if clicked off screen
@@ -682,7 +809,12 @@ var Gammonground = (function () {
                 const epos = eventPosition(e);
                 if (epos) {
                     if (epos[0] < b.left || epos[0] > b.right || epos[1] < b.top || epos[1] > b.bottom) {
-                        s.pieces.delete(s.selected);
+                        //if (cur && cur.origin)
+                        // console.log("GETSD ERE", s.selected);
+                        if ((_c = (_b = (_a = s.movable) === null || _a === void 0 ? void 0 : _a.dests) === null || _b === void 0 ? void 0 : _b.get(s.selected)) === null || _c === void 0 ? void 0 : _c.includes('a0')) {
+                            userMove(s, s.selected, 'a0');
+                        }
+                        //s.pieces.delete(s.selected);
                         callUserFunction(s.events.change);
                         unselect(s);
                         removeDragElements(s);
@@ -718,8 +850,9 @@ var Gammonground = (function () {
         else if (cur.newPiece) {
             s.pieces.delete(cur.orig);
         }
-        else if (s.draggable.deleteOnDropOff && !dest) {
-            s.pieces.delete(cur.orig);
+        else if (s.draggable.deleteOnDropOff && !dest && ((_f = (_e = (_d = s.movable) === null || _d === void 0 ? void 0 : _d.dests) === null || _e === void 0 ? void 0 : _e.get(cur === null || cur === void 0 ? void 0 : cur.orig)) === null || _f === void 0 ? void 0 : _f.includes('a0'))) {
+            userMove(s, cur.orig, 'a0');
+            //s.pieces.delete(cur.orig);
             callUserFunction(s.events.change);
         }
         if ((cur.orig === cur.previouslySelected || cur.keyHasChanged) && (cur.orig === dest || !dest))
@@ -766,6 +899,7 @@ var Gammonground = (function () {
             set(config) {
                 if (config.orientation && config.orientation !== state.orientation)
                     toggleOrientation$1();
+                applyAnimation(state, config);
                 (config.fen ? anim : render$1)(state => configure(state, config), state);
             },
             state,
@@ -818,6 +952,7 @@ var Gammonground = (function () {
     function defaults() {
         return {
             pieces: read(initial),
+            checkerCounts: readCounts(initial),
             orientation: 'white',
             turnColor: 'white',
             viewOnly: false,
@@ -862,6 +997,31 @@ var Gammonground = (function () {
         };
     }
 
+    //import { createElement as createSVG, setAttributes } from './svg.js';
+    function createElement$1(tagName) {
+        return document.createElementNS('http://www.w3.org/2000/svg', tagName);
+    }
+    function setAttributes$1(el, attrs) {
+        for (const key in attrs)
+            el.setAttribute(key, attrs[key]);
+        return el;
+    }
+    function pos2user$1(pos, bounds) {
+        const xScale = Math.min(1, bounds.width / bounds.height);
+        const yScale = Math.min(1, bounds.height / bounds.width);
+        return [(pos[0] - 3.5) * xScale, (3.5 - pos[1]) * yScale];
+    }
+    function renderSvg$1(pos, customSvg, bounds) {
+        //function renderSvg(customSvg: string, pos: cg.Pos, bounds: ClientRect): SVGElement {
+        const [x, y] = pos2user$1(pos, bounds);
+        // Translate to top-left of `orig` square
+        const g = setAttributes$1(createElement$1('g'), { transform: `translate(${x},${y})` });
+        // Give 100x100 coordinate system to the user for `orig` square
+        const svg = setAttributes$1(createElement$1('svg'), { width: 1, height: 1, viewBox: '0 0 100 100' });
+        g.appendChild(svg);
+        svg.innerHTML = customSvg;
+        return g;
+    }
     function renderWrap(element, s) {
         // .cg-wrap (element passed to Chessground)
         //   cg-container
@@ -888,6 +1048,22 @@ var Gammonground = (function () {
         element.appendChild(container);
         const board = createEl('cg-board');
         container.appendChild(board);
+        let customSvg;
+        customSvg = setAttributes$1(createElement$1('svg'), {
+            class: 'cg-custom-svgs',
+            viewBox: '-3.5 -3.5 13 13',
+            preserveAspectRatio: 'xMidYMid slice',
+        });
+        //s.checkerCounts?.push(0);
+        customSvg.appendChild(createElement$1('g'));
+        //s.checkerCounts = new Array(0);
+        container.appendChild(customSvg);
+        for (var i = 0; i < 26; i++) {
+            //customSvg.appendChild(renderSvg([i>12?12-(i%13):i%13,i>12?2:0], makeCheckerCount(i), board.getBoundingClientRect()));
+            customSvg.appendChild(renderSvg$1([i > 12 ? 12 - (i % 13) : i % 13, i > 12 ? 2 : 0], '', board.getBoundingClientRect()));
+        }
+        customSvg.appendChild(renderSvg$1([0, -6], '', board.getBoundingClientRect()));
+        customSvg.appendChild(renderSvg$1([0, 8], '', board.getBoundingClientRect()));
         let ghost;
         if (s.draggable.showGhost) {
             ghost = createEl('piece', 'ghost');
@@ -899,8 +1075,12 @@ var Gammonground = (function () {
             container,
             wrap: element,
             ghost,
+            customSvg
         };
     }
+    //  function makeCheckerCount(count: number): string {
+    //   return '<style> .heavy { font:  50px arial; fill: red; } </style> <text x="45" y="60" class="heavy">' + count + '</text>';
+    // }
 
     function drop(s, e) {
         //console.log("drop");
@@ -1207,12 +1387,10 @@ var Gammonground = (function () {
             // this allows non-square boards from CSS to be handled (for 3D)
             const elements = renderWrap(element, maybeState), bounds = memo(() => elements.board.getBoundingClientRect()), redrawNow = () => {
                 render(state);
-                //if (elements.autoPieces) autoPieces.render(state, elements.autoPieces);
-                //if (!skipSvg && elements.svg) svg.renderSvg(state, elements.svg, elements.customSvg!);
+                renderCheckerCount(state, elements.customSvg);
             }, onResize = () => {
                 updateBounds(state);
                 renderResized(state);
-                //if (elements.autoPieces) autoPieces.renderResized(state);
             };
             const state = maybeState;
             state.dom = {
@@ -1243,6 +1421,65 @@ var Gammonground = (function () {
                 redrawing = false;
             });
         };
+    }
+    function createElement(tagName) {
+        return document.createElementNS('http://www.w3.org/2000/svg', tagName);
+    }
+    function setAttributes(el, attrs) {
+        for (const key in attrs)
+            el.setAttribute(key, attrs[key]);
+        return el;
+    }
+    function pos2user(pos, bounds) {
+        const xScale = Math.min(1, bounds.width / bounds.height);
+        const yScale = Math.min(1, bounds.height / bounds.width);
+        return [(pos[0] - 3.5) * xScale, (3.5 - pos[1]) * yScale];
+    }
+    function renderSvg(pos, customSvg, bounds) {
+        //function renderSvg(customSvg: string, pos: cg.Pos, bounds: ClientRect): SVGElement {
+        const [x, y] = pos2user(pos, bounds);
+        // Translate to top-left of `orig` square
+        const g = setAttributes(createElement('g'), { transform: `translate(${x},${y})` });
+        // Give 100x100 coordinate system to the user for `orig` square
+        const svg = setAttributes(createElement('svg'), { width: 1, height: 1, viewBox: '0 0 100 100' });
+        g.appendChild(svg);
+        svg.innerHTML = customSvg;
+        return g;
+    }
+    function renderCheckerCount(state, customSvg) {
+        //console.log(customSvgsEl.viewportElement?.children[1], bounds);
+        if (state.checkerCounts) {
+            for (var i = 0; i < 26; i++) {
+                if (Math.abs(state.checkerCounts[i]) > 6 ||
+                    (Math.abs(state.checkerCounts[i]) > 1 && (i == 6 || i == 19))) {
+                    customSvg.replaceChild(renderSvg([i > 12 ? 12 - (i % 13) : i % 13, i > 12 ? 2 : 0], makeCheckerCount(state.checkerCounts[i]), state.dom.bounds()), customSvg.children[i + 1]);
+                    //customSvg.replaceChild(renderSvg([i,0], makeCheckerCount(state.checkerCounts[i]), state.dom.bounds()), customSvg.children[i] );
+                    //customSvg.children[i].innerHTML = makeCheckerCount(state.checkerCounts[i]);
+                }
+                else {
+                    customSvg.children[i + 1].innerHTML = '';
+                }
+            }
+            // off checkers
+            if (Math.abs(state.checkerCounts[26]) > 1) {
+                customSvg.replaceChild(renderSvg([0, -6], makeCheckerCount(state.checkerCounts[26]), state.dom.bounds()), customSvg.children[27]);
+            }
+            else {
+                customSvg.children[27].innerHTML = '';
+            }
+            if (Math.abs(state.checkerCounts[27]) > 1) {
+                customSvg.replaceChild(renderSvg([0, 8], makeCheckerCount(state.checkerCounts[27]), state.dom.bounds()), customSvg.children[28]);
+            }
+            else {
+                customSvg.children[28].innerHTML = '';
+            }
+        }
+        //console.log(state.checkerCounts, customSvg);
+    }
+    function makeCheckerCount(count) {
+        const c = (count < 0) ? 'black' : 'white';
+        //console.log("numb", count, c);
+        return '<style> .white { font:  50px arial; fill: white; }  .black { font:  50px arial; fill: black; } </style> <text x="45" y="60" class="' + c + '">' + Math.abs(count) + '</text>';
     }
 
     return Gammonground;
