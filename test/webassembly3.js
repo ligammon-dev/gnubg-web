@@ -1,4 +1,4 @@
-function arrayToHeap(typedArray){
+function arrayToHeap(typedArray) {
    var numBytes = typedArray.length * typedArray.BYTES_PER_ELEMENT;
    var ptr = Module._malloc(numBytes);
    var heapBytes = Module.HEAPU8.subarray(ptr, ptr + numBytes);
@@ -28,18 +28,15 @@ function gnubgCommand(command) {
       commandBuffer = makeCommandBuffer();
       commandBufferInititalized = true;
    }
-   // if (command.startsWith("b/") || command.startsWith("bar/") || ["1","2","3","4","5","6","7","8","9"].includes(command.substring(0,1))) {  // assume it's a move
-   //    command = "move " + command;
-   // }
    fillCommandBuffer(commandBuffer, command);
-   writeLog("=> " + command);
+   //writeLog("=> " + command);
    Module._run_command(commandBuffer);
    window.setTimeout(doNextTurn, 0);
 }	
 
 lastLogLine = "";  // needed for stdin prompts from gnubg's GetInput function in gnubg.c
+// read new stdout or stderr from gnubg
 function writeLog(str) {
-            //console.log("ROLLLLLL", str);
   if (str.startsWith("falling back to ArrayBuffer instantiation") || str.startsWith("wasm streaming compile failed") || str.startsWith("file packager has copied file data into memory")) { // suppress various startup messages not from gnubg, put it into console instead
      console.log(str);
   } else {
@@ -50,36 +47,37 @@ function writeLog(str) {
       if (str.match(/^\s\s+[0-9]{0,4}\.\s/g)) {
          window.getRolls(str);
       }
-        if (str.startsWith("You have already rolled")) {
-          window.afterRoll();
-        }
-     if (!str.startsWith("board:")) {
-         lastLogLine = str;
-         var gnubg_log = document.getElementById("gnubg_log");
-         gnubg_log.textContent += str;
-         gnubg_log.textContent += '\n';
-         gnubg_log.scrollTop = gnubg_log.scrollHeight;
-      }
+       if (str.startsWith("You have already rolled")) {
+         window.afterRoll();
+       }
+     // if (!str.startsWith("board:")) {
+     //     lastLogLine = str;
+     //     var gnubg_log = document.getElementById("gnubg_log");
+     //     gnubg_log.textContent += str;
+     //     gnubg_log.textContent += '\n';
+     //     gnubg_log.scrollTop = gnubg_log.scrollHeight;
+     //  }
 
       if (str.startsWith("gnubg moves")) {
-         window.gnubgMove(str);
+         window.gnubgMove(str.replaceAll(".","").replace("gnubg moves ",""));
          //console.log("gnubg moves");
+      }
 
-      if (str.includes("somebody")) {
-         console.log("ROLLLLLL");
-        // window.preRoll();
+      if (str.startsWith("The score ")) {
+         lastTurn = 0;
+         window.preRoll();
+         window.afterRoll();
+         //window.preRoll();
+      }
+      //if (str.includes(" wins ")) {
          //window.afterRoll();
-      }
-      }
-      // if (str.includes(" wins ")) {
-      //    window.afterRoll();
-      //    //(str);
-      //    //console.log("gnubg moves");
-      // }
-      if (str.startsWith("A new")) {
-         //gnubgCommand("show board");
-         window.cleanDests();
-         //gnubgCommand("show dice");
+         //(str);
+         //console.log("gnubg moves");
+      //}
+      if (str.startsWith("A new ")) {
+         lastTurn = 0;
+         window.preRoll();
+         window.afterRoll();
       }
    }
 }
@@ -89,15 +87,6 @@ function doNextTurn() {
 }
 
 window.addEventListener("load", function () {
-   var form = document.getElementById("command_form");
-   form.addEventListener("submit", function (event) {
-      event.preventDefault();
-      var command_text_element = document.getElementById("command_text");
-      var command = command_text_element.value;
-      gnubgCommand(command);
-      command_text_element.value = "";
-   });
-
   // draw an empty board on initial load
    window.drawBoard(true);
 });
@@ -108,9 +97,6 @@ resignationOfferPending = false;
 resignationValue = 0;
 
 function updateBoard(rawBoard) {
-
-
-    //console.log("updaeyboad");
 
    if (resignationOfferPending) {  // Ignore board update immediately after resignation offer, since nothing has changed and we don't want to remove the "Accept or reject the resignation" message
       resignationOfferPending = false;
@@ -148,14 +134,10 @@ function updateBoard(rawBoard) {
    var iMayDouble = parseInt(rawBoardSplit[38]);
    var opponentMayDouble = parseInt(rawBoardSplit[39]);
    var wasDoubled = parseInt(rawBoardSplit[40]);
-   var myPiecesOff = parseInt(rawBoardSplit[45]);
-   var opponentPiecesOff = parseInt(rawBoardSplit[46]);
    var crawford = parseInt(rawBoardSplit[51]);
 
    if (dice1 > 0 && turn != lastTurn) {           
       var name = (turn == 1) ? myName : opponentName;
-      writeLog(name + " rolls " + dice1 + " " + dice2);
-
       lastTurn = turn;
       // TODO issue with buffer
       gnubgCommand("show dice ");
@@ -163,9 +145,7 @@ function updateBoard(rawBoard) {
          gnubgCommand("hint 2000");
       }
       gnubgCommand("roll");
-
    }
-
    window.drawBoard(false,
       board,
       rawBoard,
@@ -179,8 +159,6 @@ function updateBoard(rawBoard) {
       iMayDouble,
       opponentMayDouble,
       wasDoubled,
-      myPiecesOff,
-      opponentPiecesOff,
       crawford,
       resignationOffered,
       resignationValue);
@@ -188,9 +166,9 @@ function updateBoard(rawBoard) {
    lastBoard = rawBoard;
 }
 
-function newSession() {
-   gnubgCommand("new session");
-}
+// function newSession() {
+//    gnubgCommand("new session");
+// }
 
 function newMatch(matchLength) {
    gnubgCommand('set automatic roll off');
@@ -204,6 +182,7 @@ function newMatch(matchLength) {
 }
 
 function roll() {
+   window.preRoll();
    gnubgCommand("roll");
 }
 
@@ -236,21 +215,27 @@ function setPlayerBad(val) {
    gnubgCommand('set player 0 cube evaluation noise ' + val);
    gnubgCommand('save settings');
 }
+
 function setPlayerBeginner() {
    setPlayerBad(0.06);
 }
+
 function setPlayerCasual() {
    setPlayerBad(0.05);
 }
+
 function setPlayerIntermediate() {
    setPlayerBad(0.04);
 }
+
 function setPlayerAdvanced() {
    setPlayerBad(0.015);
 }
+
 function setPlayerExpert() {
    setPlayerBad(0);
 }
+
 function setPlayerWorldClass() {
    gnubgCommand('set player 0 chequer evaluation plies 2');
    gnubgCommand('set player 0 chequer evaluation prune on');
@@ -267,77 +252,31 @@ function setPlayerWorldClass() {
    gnubgCommand('save settings')
 }
 
-const fakeDownload = document.createElement('a');
-fakeDownload.style.display = 'none';
-
-function download(filename) {
-   const data = new Blob([FS.readFile(filename, {encoding: 'utf8'})]);
-   const url = window.URL.createObjectURL(data);
-   fakeDownload.href = url;
-   fakeDownload.download = filename;
-   document.body.appendChild(fakeDownload);
-   fakeDownload.click();
-   window.URL.revokeObjectURL(url);
-   document.body.removeChild(fakeDownload);
-}
-
-const fakeUpload = document.createElement('input');
-fakeUpload.type = 'file';
-fakeUpload.multiple = true;
-fakeUpload.style.display = 'none';						    
-fakeUpload.addEventListener("change", function() {
- for (var i=0; i < this.files.length; i++) {
-   const file = this.files.item(i);
-   console.log('Uploading ' + file.name);
-   const fileReader = new FileReader();
-
-   fileReader.onload = function(e) {
-      const arrayBuffer = e.target.result;
-      const data = new Uint8Array(arrayBuffer);
-      FS.writeFile(file.name, data);
-      writeLog('Successfully uploaded ' + file.name);
-   }
-   fileReader.onerror = function() {
-      writeLog('Could not upload ' + file.name);
-   }
-   fileReader.readAsArrayBuffer(file);
-}
- document.body.removeChild(this);
-}, false);
-
-function upload() {
-   document.body.appendChild(fakeUpload);
-   fakeUpload.click();
-}
-
 inputBuffer = "";
 inputBufferPointer = 0;
 
-
 var Module = { 
- preRun: [
-  function () {
-    FS.init( 
-       function stdin() {
-     if (inputBuffer == "") {
-              inputBuffer = window.prompt(lastLogLine);
-         inputBuffer += '\n';
-              inputBufferPointer = 1;
-    return inputBuffer.charCodeAt(0);
-          } else {
-             if (inputBufferPointer < inputBuffer.length) {
-                 var code = inputBuffer.charCodeAt(inputBufferPointer);
-       ++inputBufferPointer;
-       return code;
-           } else {
-       inputBuffer = "";
-       return null;
-             }
-          }
-       });
- }],
- print: writeLog,
- printErr: writeLog,
- onRuntimeInitialized: function() {
-   Module._start();
-}}
+   preRun: [
+      function () {
+         FS.init( function stdin() {
+            if (inputBuffer == "") {
+               inputBuffer = window.prompt(lastLogLine);
+               inputBuffer += '\n';
+               inputBufferPointer = 1;
+               return inputBuffer.charCodeAt(0);
+            } else {
+               if (inputBufferPointer < inputBuffer.length) {
+                  var code = inputBuffer.charCodeAt(inputBufferPointer);
+                  ++inputBufferPointer;
+                  return code;
+               } else {
+                  inputBuffer = "";
+                  return null;
+               }
+            }
+         });
+      }],
+      print: writeLog,
+      printErr: writeLog,
+      onRuntimeInitialized: function() {Module._start();}
+   }

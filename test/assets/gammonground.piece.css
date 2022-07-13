@@ -12,6 +12,22 @@
 
 }
 
+.cg-wrap piece.double.black {
+ background-image: url('./cube.svg');
+}
+
+.cg-wrap piece.resign1.black {
+ background-image: url('./resign1.svg');
+}
+
+.cg-wrap piece.resign2.black {
+ background-image: url('./resign2.svg');
+}
+.cg-wrap piece.resign3.black {
+ background-image: url('./resign3.svg');
+}
+
+
 /** SVGs for backgammon die faces */
 .cg-wrap piece.d1.black {
  background-image: url('./d1_black.svg');

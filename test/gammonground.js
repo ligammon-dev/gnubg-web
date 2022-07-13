@@ -137,6 +137,23 @@ var Gammonground = (function () {
         }
         return count;
     }
+    function pip2square(pip) {
+        let pv = 24 - parseInt(pip);
+        if (pv < 0) {
+            return "g6";
+        }
+        else if (pv > 23) {
+            return "a>";
+        }
+        else {
+            if (pv < 12) {
+                return pos2key([(pv) + (pv / 6 >> 0), 0]);
+            }
+            else {
+                return pos2key([(24 - pv) + (((24 - pv) / 7) >> 0) - 1, 12]);
+            }
+        }
+    }
 
     function callUserFunction(f, ...args) {
         if (f)
@@ -216,7 +233,6 @@ var Gammonground = (function () {
             var result;
             // Gammonground
             const clr = (_a = state.pieces.get(orig)) === null || _a === void 0 ? void 0 : _a.color;
-            //console.log("color", state.pieces.get(orig)?.color);
             var isSame = ((_b = state.pieces.get(orig)) === null || _b === void 0 ? void 0 : _b.color) == ((_c = state.pieces.get(dest)) === null || _c === void 0 ? void 0 : _c.color);
             const pos1 = key2pos(orig);
             const pos2 = key2pos(dest);
@@ -224,13 +240,13 @@ var Gammonground = (function () {
             const incr2 = pos2[1] > 6 ? -1 : 1;
             var k = pos2[1];
             var i = pos1[1] + incr1;
-            if (dest == 'a0') {
+            if (dest == 'a0' || dest == 'a>') {
                 result = baseUserMove(state, orig, dest);
             }
             else {
                 if (isSame) {
                     // slide checkers dest up
-                    for (k = pos2[1]; k != 6 && state.pieces.get(pos2key([pos2[0], k + incr2])); k += incr2)
+                    for (k = pos2[1]; (k + incr2) != 6 && state.pieces.get(pos2key([pos2[0], k + incr2])); k += incr2)
                         ;
                     if (k + incr2 == 6) {
                         // original move
@@ -318,9 +334,6 @@ var Gammonground = (function () {
                 return true;
             }
         }
-        else {
-            console.log("not legal");
-        }
         unselect(state);
         return false;
     }
@@ -335,7 +348,6 @@ var Gammonground = (function () {
         unselect(state);
     }
     function selectSquare(state, key, force) {
-        console.log("SELECT SQUARE");
         callUserFunction(state.events.select, key);
         if (state.selected) {
             if (state.selected === key && !state.draggable.enabled) {
@@ -351,10 +363,6 @@ var Gammonground = (function () {
             }
         }
         if (isMovable(state, key)) {
-            console.log("SELECT SQUARE 2");
-            console.log("SELECT SQUARE");
-            setTimeout(function () { console.log(state.draggable.current); }, 2000);
-            console.log(state.draggable.current);
             setSelected(state, key);
             state.hold.start();
         }
@@ -374,8 +382,7 @@ var Gammonground = (function () {
     }
     function canMove(state, orig, dest) {
         var _a, _b;
-        //console.log( isGammonLegal(orig, dest, state.pieces),  !!state.movable.dests?.get(orig)?.includes(dest));
-        return (orig !== dest && isMovable(state, orig) && (state.movable.free || !!((_b = (_a = state.movable.dests) === null || _a === void 0 ? void 0 : _a.get(orig)) === null || _b === void 0 ? void 0 : _b.includes(dest)) || dest == 'a0') && (isGammonLegal(orig, dest, state.pieces) || dest == 'a0'));
+        return (orig !== dest && isMovable(state, orig) && (state.movable.color == 'white' || state.movable.free || !!((_b = (_a = state.movable.dests) === null || _a === void 0 ? void 0 : _a.get(orig)) === null || _b === void 0 ? void 0 : _b.includes(dest)) || dest == 'a0') && (isGammonLegal(orig, dest, state.pieces) || dest == 'a0' || dest == 'a>'));
     }
     function canDrop(state, orig, dest) {
         const piece = state.pieces.get(orig);
@@ -414,6 +421,10 @@ var Gammonground = (function () {
     const letters = {
         checker: 'c',
         undo: 'u',
+        double: 'd',
+        resign1: 'r',
+        resign2: 's',
+        resign3: 't',
         d1: '1',
         d2: '2',
         d3: '3',
@@ -432,7 +443,6 @@ var Gammonground = (function () {
     function readCounts(fen) {
         if (fen === 'start')
             fen = initial;
-        //console.log("foo");
         var my_string = fen.split(':');
         const counts = new Array();
         // for (let i = 0; i < 12; i++) {
@@ -453,6 +463,7 @@ var Gammonground = (function () {
         }
         counts.push(parseInt(my_string[45]));
         counts.push(0 - parseInt(my_string[46]));
+        counts.push(parseInt(my_string[37]));
         return counts;
     }
     function read(fen) {
@@ -487,6 +498,17 @@ var Gammonground = (function () {
             if (turn > 0) {
                 pieces.set(pos2key([12, 6]), { role: 'undo', color: 'black' });
             }
+        }
+        //var cubeValue = parseInt(my_string[37]);
+        var iMayDouble = parseInt(my_string[38]);
+        var opponentMayDouble = parseInt(my_string[39]);
+        //var wasDoubled = parseInt(my_string[40]);
+        if (iMayDouble && opponentMayDouble) ;
+        else if (iMayDouble) {
+            pieces.set(pos2key([6, 0]), { role: 'double', color: 'black' });
+        }
+        else if (opponentMayDouble) {
+            pieces.set(pos2key([6, 12]), { role: 'double', color: 'black' });
         }
         // draw bar checkers
         if (parseInt(my_string[31]) != 0) {
@@ -919,6 +941,11 @@ var Gammonground = (function () {
             move(orig, dest) {
                 anim(state => baseMove(state, orig, dest), state);
             },
+            gammonMove(orig, dest) {
+                let fr = pip2square(orig);
+                let to = pip2square(dest);
+                anim(state => userMove(state, fr, to), state);
+            },
             newPiece(piece, key) {
                 anim(state => baseNewPiece(state, piece, key), state);
             },
@@ -1064,6 +1091,7 @@ var Gammonground = (function () {
         }
         customSvg.appendChild(renderSvg$1([0, -6], '', board.getBoundingClientRect()));
         customSvg.appendChild(renderSvg$1([0, 8], '', board.getBoundingClientRect()));
+        customSvg.appendChild(renderSvg$1([6, 1], '64', board.getBoundingClientRect()));
         let ghost;
         if (s.draggable.showGhost) {
             ghost = createEl('piece', 'ghost');
@@ -1473,13 +1501,38 @@ var Gammonground = (function () {
             else {
                 customSvg.children[28].innerHTML = '';
             }
+            // cube
+            if (state.checkerCounts[28] > 1) {
+                // var pos = [6,1];
+                //console.log(state.pieces.get('g7'));
+                if (state.pieces.get('f7')) {
+                    customSvg.replaceChild(renderSvg([5, 1], makeDoublingCube(state.checkerCounts[28]), state.dom.bounds()), customSvg.children[29]);
+                }
+                else if (state.pieces.get('h7')) {
+                    customSvg.replaceChild(renderSvg([7, 1], makeDoublingCube(state.checkerCounts[28]), state.dom.bounds()), customSvg.children[29]);
+                }
+                else if (state.pieces.get('g=')) {
+                    customSvg.replaceChild(renderSvg([6, 7], makeDoublingCube(state.checkerCounts[28]), state.dom.bounds()), customSvg.children[29]);
+                }
+                else if (state.pieces.get('g1')) {
+                    customSvg.replaceChild(renderSvg([6, -5], makeDoublingCube(state.checkerCounts[28]), state.dom.bounds()), customSvg.children[29]);
+                }
+            }
+            else {
+                customSvg.children[29].innerHTML = '';
+            }
         }
         //console.log(state.checkerCounts, customSvg);
     }
     function makeCheckerCount(count) {
         const c = (count < 0) ? 'black' : 'white';
         //console.log("numb", count, c);
-        return '<style> .white { font:  50px arial; fill: white; }  .black { font:  50px arial; fill: black; } </style> <text x="45" y="60" class="' + c + '">' + Math.abs(count) + '</text>';
+        return '<style> .white { font:  50px arial; fill: white; }  .black { font:  50px arial; fill: black; } </style> <text x="50" y="58" class="' + c + '">' + Math.abs(count) + '</text>';
+    }
+    function makeDoublingCube(count) {
+        //const c =  (count < 0) ? 'black' : 'white';
+        //console.log("numb", count, c);
+        return '<style> .white { font:  50px arial; fill: white; }  .black { font:  50px courier; fill: black; } </style> <text x="50" y="58" class="black">' + count + '</text>';
     }
 
     return Gammonground;
