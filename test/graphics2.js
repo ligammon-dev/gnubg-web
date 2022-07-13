@@ -77,7 +77,7 @@ function setLegalMoves(lastMove) {
     //if (lastMove == "") return;
     //console.log("last move",ground.state.lastGammonMove);
     if (getTotal(ground.state.lastGammonMove)) {
-
+        ground.state.selected = undefined;
         return;
     }
     //console.log ("length of legalmoves", legalMoves.length);
@@ -143,12 +143,28 @@ export function printLegalMoves(Api) {
     }
 }
 
-window.afterRoll = function(rawHint) {
-    console.log(legalMoves);
-    setLegalMoves("");
+//window.ggreset = function();
 
+
+window.gnubgMove = function(str) {
+    console.log(str);
 }
 
+
+window.afterRoll = function(rawHint) {
+    //console.log(legalMoves);
+    setLegalMoves("");
+    ground.state.lastGammonMove = [];
+    //ground.state.movable.dests.clear();
+
+}
+window.cleanDests = function() {
+    //console.log(legalMoves);
+    //setLegalMoves("");
+    ground.state.lastGammonMove = [];
+    ground.state.movable.dests.clear();
+
+}
 window.getRolls = function(rawHint) {
     var moves = rawHint.split('.')[1].split('   ')[1].trim().split(' ');
     var cm = cleanMoves(moves);
@@ -161,12 +177,17 @@ window.getRolls = function(rawHint) {
             var m1 = parseInt(m0) - lastDice1;
             var m2 = parseInt(m0) - lastDice2;
             let m3 = cm[0].split('/')[1];
-            // TODO check if legal
-            legalMoves.push([m0 + '/' + m1, '' + m1 + '/' + m3]);
-            legalMoves.push([m0 + '/' + m2, '' + m2 + '/' + m3]);
-
+            let c1 = ground.state.checkerCounts[(m1-1)+((m1-1)/6>>0)-((m1-1)/12>>0)];
+            let c2 = ground.state.checkerCounts[(m2-1)+((m2-1)/6>>0)-((m2-1)/12>>0)];
+            if (c1 >= -1) {
+                legalMoves.push([m0 + '/' + m1, '' + m1 + '/' + m3]);
+            }
+            if (c2 >= -1) {
+                legalMoves.push([m0 + '/' + m2, '' + m2 + '/' + m3]);
+            }
         }
-    } else { // TODO sooo ugly...
+    } else { // TODO sooo ugly, but it works. Still missing edge cases parsing gnubg commands:
+            //  e.g "8/6*/4(2)" needs "8/6*/4 8/4" in addition to "8/6*/4 8/6/4"
         // gap of 4x
         if (cm.length == 1 && (parseInt(cm[0].split('/')[0]) -  parseInt(cm[0].split('/')[1]) == (4* + lastDice1))) {
             //add 7 things
@@ -184,13 +205,10 @@ window.getRolls = function(rawHint) {
             legalMoves.push([m0 + '/' + m3, '' + m3 + '/' + m4])
 
         } else {
-
              cm.forEach(m => {
                  const n0 = parseInt(m.split('/')[0]);
                  const n1 = parseInt(m.split('/')[1]);
                  if (Math.abs(n0-n1) == 3*lastDice1) {
-                    //console.log("3x cm, m", cm,m);
-            //         //var therest = '';
                     const m0 = n0;
                     const m1 = m0 - lastDice1;
                     const m2 = m1 - lastDice1;
@@ -198,22 +216,14 @@ window.getRolls = function(rawHint) {
                     const index2 = cm.indexOf(m);
                     var other = [...cm];
                     other.splice(index2, 1);
-                    //console.log("other", other, [...cm],  [...cm].splice(index2, 1), index);
                     let a = ['' + m0 + '/' + m1, '' + m1 + '/' + m2, '' + m2 + '/' + m3, ...other];
                     let b = ['' + m0 + '/' + m1, '' + m1 + '/' + m3, ...other];
                     let c = ['' + m0 + '/' + m2, '' + m2 + '/' + m3, ...other];
-                    //console.log("a b c",a,b,c);
-                     legalMoves.push(a, b, c);
-                     //legalMoves.push(cm.splice(index, 1).concat(['' + m0 + '/' + m1, '' + m1 + '/' + m3]));
-                     //legalMoves.push(cm.splice(index, 1).concat(['' + m0 + '/' + m2, '' + m2 + '/' + m3]));
-
+                    legalMoves.push(a, b, c);
                  } else if (Math.abs(n0-n1) == 2*lastDice1) {
-                    // console.log("2x cm, m", cm,m);
-
                      const m0 = n0;
                      const m1 = m0 - lastDice1;
                      const m2 = m1 - lastDice1;
-                      //if (cm.length == 1) {
                      const index3 = cm.indexOf(m);
                      var other2 = [...cm];
                      other2.splice(index3, 1);
@@ -222,10 +232,7 @@ window.getRolls = function(rawHint) {
                         const s0 = parseInt(cm[1-index3].split('/')[0]);
                         const s1 = s0 - lastDice1;
                         const s2 = s1 - lastDice1;
-                        //if (cm.length == 1) {
-                        //const index = cm.indexOf(m);
-
-                         legalMoves.push(['' + m0 + '/' + m1, '' + m1 + '/' + m2, '' + s0 + '/' + s1, '' + s1 + '/' + s2]);
+                        legalMoves.push(['' + m0 + '/' + m1, '' + m1 + '/' + m2, '' + s0 + '/' + s1, '' + s1 + '/' + s2]);
                      }
 
                  }
@@ -283,7 +290,6 @@ function pip2squares(pip) {
     if (parseInt(pip) > 24) {
         r.push("g6");
         r.push("g8");
-
     } else if (parseInt(pip) == 0) {
         r.push("a0", "b0", "c0", "d0", "e0", "f0");
     } else {
@@ -349,11 +355,21 @@ export function tryRoll(Api) {
                 let c1 = ground.state.checkerCounts[p2+(p2/6>>0)-(p2/12>>0)];
                 if (c1 > 0 && c1 < 6) {
                     //ground.selectSquare(orig.charAt(0) + String.fromCharCode(orig[1].charCodeAt() - '0'.charCodeAt() + c1));
-                    
-                    if (p2 > 12) {
-                        ground.selectSquare(orig.charAt(0) + String.fromCharCode( '0'.charCodeAt() + (12-c1)));
+                    var sq;
+                    if (p2 > 11) {
+                        sq = orig.charAt(0) + String.fromCharCode( '>'.charCodeAt() - (c1));
                     } else {
-                        ground.selectSquare(orig.charAt(0) + String.fromCharCode( '0'.charCodeAt() + c1));
+                        sq = orig.charAt(0) + String.fromCharCode( '0'.charCodeAt() + c1);
+                    }
+                        //console.log("selected", ground.state.selected);
+
+                    if (ground.state.selected != undefined) {
+                        //console.log(ground.state.selected);
+                        //ground.state.selected = undefined;
+                    } else {
+
+                        ground.selectSquare(sq);
+                         //console.log(ground.state.selected);
                     }
                     //ground.draggable.current = {}
 
@@ -492,30 +508,19 @@ function drawBarCheckers(ctx, numCheckers, direction) {
 		   myPiecesOff,
 		   opponentPiecesOff,
 		   crawford,
-                   resignationOffered,
+           resignationOffered,
 		   resignationValue) {
-         //console.log("TURN IS ",turn);
 
-   if (turn == 1) {
-      //console.log("TURN IS 1");
-     
-
-       // fillCommandBuffer(commandBuffer, "hint 200");
-       //  Module._run_command(commandBuffer);
-            //gnubgCommand('hint 200');
-   }
     var backgammonBoard = document.getElementById("backgammonBoard");
     //var ground = Chessground(document.getElementById('chessground'), config);
     //console.log(boardString);
     if (dice1 > 0) {
-
         lastDice1 = dice1;
         lastDice2 = dice2;
     }
 
     //console.log(lastDice1, lastDice2);
    // var legalMoves = new Map([]);
-
    // legalMoves.set('a1', ['f1','f2','f3','f4', 'f5', 'f6']);
   // ground.set({fen: boardString});
     if (dice1 <= 0) {
@@ -536,13 +541,8 @@ function drawBarCheckers(ctx, numCheckers, direction) {
    }
    //ground.newPiece({role:'d'+lastDice2, color:'white'}, 'a0');
    // ground.
-
     //ground.set
-
-
     //ground.set()
-
-
 
     var ctx = backgammonBoard.getContext("2d");
     ctx.strokeStyle = "black";
@@ -580,7 +580,6 @@ function drawBarCheckers(ctx, numCheckers, direction) {
 	if (!backgroundOnly) {
 	    drawCheckers(ctx, board[24-i], pointStart, 1);
 	}
-
         pointStart += (checkerDiameter + gapBetweenCheckers);
     }
 
@@ -602,7 +601,6 @@ function drawBarCheckers(ctx, numCheckers, direction) {
 
         pointStart += (checkerDiameter + gapBetweenCheckers);
     }
-
 
     // draw lower left points
     var pointStart = gapBetweenCheckers;
@@ -659,15 +657,43 @@ function drawBarCheckers(ctx, numCheckers, direction) {
     if (!crawford) {
         ctx.strokeStyle = "black";
         var cubeVertical;
-	var cubeHorizontal;
-	var cubeValueToShow;
+	   var cubeHorizontal;
+	   var cubeValueToShow;
         if (wasDoubled) {
+            //console.log("doubled");
+
+            // remove dice
+            // place cube in center
+            // ground.deletePice('c7');
+            // ground.deletePiece('d7');
+        // ground.deletePiece('i7');
+        // ground.deletePiece('j7');
+        //ground.newPiece({role:'double', color:'black'}, 'h7');
+
 	    cubeValueToShow = cubeValue * 2;
+
+        ground.state.checkerCounts[28] = ground.state.checkerCounts[28]*2;
+
+
 	    cubeVertical = (boardHeight - doublingCubeSize) / 2;
 	    if (wasDoubled > 0) {  // opponent doubled player
-		cubeHorizontal = (barLeftBoundary - doublingCubeSize) / 2;
+            if (cubeValue > 1) {
+                ground.move('g1', 'f7');
+            } else {
+                ground.newPiece({role:'double', color:'black'},'f7');
+            }
+
+            //ground.move('g7', 'f7');
+
+		  cubeHorizontal = (barLeftBoundary - doublingCubeSize) / 2;
 	    } else {  // player doubled opponent
-		cubeHorizontal = (barRightBoundary + boardWidth - doublingCubeSize) / 2;
+
+            if (cubeValue > 1) {
+                ground.move('g=', 'h7');
+            } else {
+                ground.newPiece({role:'double', color:'black'},'h7');;
+            }
+		  cubeHorizontal = (barRightBoundary + boardWidth - doublingCubeSize) / 2;
 	    }
 	} else {
 	    cubeValueToShow = cubeValue;
@@ -713,8 +739,10 @@ function drawBarCheckers(ctx, numCheckers, direction) {
     if (resignationOffered) {
 	var resignationFlagHorizontal;
 	if (turn == 1) {  // player offered resignation to opponent
+        ground.newPiece({role:'resign' + resignationValue, color:'black'}, 'e7');
 	    resignationFlagHorizontal = barLeftBoundary / 2;
 	} else {  // opponent offered resignation to player
+        ground.newPiece({role:'resign' + resignationValue, color:'black'}, 'i7');
 	    resignationFlagHorizontal = (barRightBoundary + boardWidth)/2;
 	}
 

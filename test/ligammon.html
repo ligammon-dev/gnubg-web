@@ -1,0 +1,62 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="assets/gammonground.base.css">
+    <link rel="stylesheet" type="text/css" href="assets/gammonground.piece.css">
+    <link rel="stylesheet" type="text/css" href="assets/gammonground.board.css">
+    <style>
+        #gammonground {
+            position:  relative;
+            width: 800px;
+            height: 800px;
+            z-index:  8;
+        }
+        cg-board {
+            background-color: #bfcfdd;
+        }
+/*        #canvas {
+            position: absolute; top: 0; left: 0; 
+            z-index: 10;
+        }*/
+        #container {
+             position: relative;
+        }
+    </style>
+    <div id="info"> </div>
+    <div id="instructions">To begin, click "New match".</div>
+        
+    <br><br><br>
+    <!-- <div id="container"></div> -->
+    <div id="gammonground"> </div>
+    <br><br><br>
+
+    <div id="buttons">
+    <button id="roll" onclick="roll();" disabled="true">Roll</button>
+    <button id="double" onclick="double();" disabled="true">Double</button>
+    <button id="accept" onclick="accept();" disabled="true">Accept</button>
+    <button id="reject" onclick="reject();" disabled="true">Reject</button>
+    <button id="beaver" onclick="beaver();" disabled="true">Beaver</button>
+    <button type="resign" id="resign" disabled="true" onclick='var value = prompt("Enter value(1=single, 2=gammon, 3=backgammon)"); resign(value);'>Resign</button>
+    <br>
+    <button id="newMatch" onclick='var length = prompt("Enter match length"); newMatch(length);'>New match</button>
+    <br>
+    <!-- <form id="command_form">
+       <label for="command_text">Move or gnubg command:</label>
+       <input id="command_text" type="text"></input>
+       <input type="submit" value="Submit"></input>
+    </form> -->
+    </div>
+    </head>
+    <body>
+    <!-- <div id="canvas"></div> -->
+    <!-- <textarea id="gnubg_log" cols="120" rows="20" readonly="true" hidden="hidden">
+    Loading, please wait...
+    </textarea>  -->
+
+    <script src="graphics3.js" type="module"></script>
+    <script src="webassembly3.js"></script>
+    <script src="gnubg.js"></script>
+</body>
+</html>

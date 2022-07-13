@@ -1,50 +1,23 @@
-
-<!DOCTYPE html>
 <html>
-
-<head>
 <meta charset="UTF-8">
     <link rel="stylesheet" type="text/css" href="assets/gammonground.base.css">
     <link rel="stylesheet" type="text/css" href="assets/gammonground.piece.css">
     <link rel="stylesheet" type="text/css" href="assets/gammonground.board.css">
-    <!-- <style type="text/css">@import "main.css";</style> -->
     <style>
         #gammonground {
-                        position:  relative;
-
             width: 800px;
             height: 800px;
-            z-index:  8;
         }
 
         cg-board {
             background-color: #bfcfdd;
         }
-
-        #canvas {
-             position: absolute; top: 0; left: 0; 
-            z-index: 10;
-        }
-        #container {
-             position:  relative;
-        }
     </style>
-    <div id="info"> </div>
-<div id="instructions">To begin, click "New money session" or "New match". Click "Help" for more instructions.</div>
-    <br><br><br>
-   <div id="container">
-    <div  id="gammonground"> </div>
-     <div id="canvas"></div>
-</div>
-   
-        
-
-     <!-- <div id="canvas"></div> -->
+    <div id="gammonground"></div>
 
 <canvas id="backgammonBoard" width="600" height="360"></canvas>
-<!-- <div id="info"> </div>
- -->
-
+<div id="info"> </div>
+<div id="instructions">To begin, click "New money session" or "New match". Click "Help" for more instructions.</div>
 <div id="buttons">
 <button id="roll" onclick="roll();" disabled="true">Roll</button>
 <button id="double" onclick="double();" disabled="true">Double</button>
@@ -66,38 +39,14 @@
 </form>
 
 </div>
-</head>
-<body>
-    <div id="info_div" style="display: none">
-        <div class="center_field">
-            <span id="label"></span>
-        </div>
-        <div class="center_field">
-            <div class="bottom_field">
-                <span id="labelhelp">swipe to roll</span>
-            </div>
-        </div>
-    </div>
-    <div id="selector_div" style="display: none">
-        <div class="center_field">
-            <input type="text" id="set" value="2d6"></input><br/>
-            <button style="margin-left: 0.6em" id="throw">throw</button>
-        </div>
-    </div>
-    <div id="canvas"></div>
-    <script type="text/javascript" src="main.js"></script>
-       <script type="text/javascript" defer="defer">
-        // dice_initialize(document.body);
-    </script>
 <textarea id="gnubg_log" cols="120" rows="20" readonly="true">
 Loading, please wait...
 </textarea> 
 
-<script src="graphics2.js" type="module"></script>
-<script src="webassembly2.js"></script>
+<script src="graphics.js" type="module"></script>
+<script src="webassembly.js"></script>
 <script src="gnubg.js"></script>
 <footer>
 <a href="https://github.com/hwatheod/gnubg-web">Github repo for gnubg-web.</a>
 </footer>
-</body>
 </html>
